@@ -28,7 +28,7 @@ fn some_function() {
 
     // wait some time
 
-    // None: result not ready or already been retrieved
+    // `None` means the result is not ready, or already been retrieved
     let result: Option<Type3> = sc.get(result_id);
 }
 ```
