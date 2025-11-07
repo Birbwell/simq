@@ -33,7 +33,7 @@ fn some_function() {
 }
 ```
 
-This creates a SimqWorker that is able to create 5 threads that run `worker_function`. The parameters `val1` and `val2` are sent to be processed, returning `result_id`. After some time, the results of the job can be retrieved with `wc.get(result_id)`.
+This creates a SimqWorker that is able to create 5 threads that run `worker_function`. The parameters `val1` and `val2` are sent to be processed, returning `result_id`. After some time, the results of the job can be retrieved with `sc.get(result_id)`.
 
 # Known Issues
 
