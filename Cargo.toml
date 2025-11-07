@@ -1,6 +1,6 @@
 [package]
 name = "simq"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 description = "A job queue with the goal of being as simple of a queue as possible."
