@@ -3,12 +3,12 @@ use std::sync::mpsc::{RecvTimeoutError, SendError, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
 
-pub struct WorkerChannel<A, B> {
+pub struct SimqChannel<A, B> {
     tx: Sender<(usize, A)>,
     results: Arc<Mutex<HashMap<usize, B>>>,
 }
 
-impl<A, B: Clone> WorkerChannel<A, B> {
+impl<A, B: Clone> SimqChannel<A, B> {
     /// Send data to the worker, returning the id of the request.
     pub fn send(&self, params: A) -> Result<usize, SendError<(usize, A)>> {
         static ID_COUNTER: Mutex<usize> = Mutex::new(0);
@@ -34,14 +34,14 @@ impl<A, B: Clone> WorkerChannel<A, B> {
 }
 
 /// Job Builder
-pub struct SimpBuilder<A, B> {
+pub struct SimqBuilder<A, B> {
     func: fn(A) -> B,
     max_threads: usize,
     opt_and_then: Option<fn(&B)>,
     opt_and_then_mut: Option<fn(&mut B)>,
 }
 
-impl<A: Send + 'static, B: Send + 'static> SimpBuilder<A, B> {
+impl<A: Send + 'static, B: Send + 'static> SimqBuilder<A, B> {
     /// Register a job, designating the maximum number of parallel threads you wish to run the task
     pub fn register(max_threads: usize, func: fn(A) -> B) -> Self {
         Self {
@@ -76,7 +76,7 @@ impl<A: Send + 'static, B: Send + 'static> SimpBuilder<A, B> {
 
     /// Launch the worker
     /// The worker will continue accepting and processing data as long as the WorkerChannel is not dropped.
-    pub fn spawn(self) -> WorkerChannel<A, B> {
+    pub fn spawn(self) -> SimqChannel<A, B> {
         // Spawn the worker
         let (tx, rx) = channel::<(usize, A)>();
         let result_map = Arc::new(Mutex::new(HashMap::new()));
@@ -118,7 +118,7 @@ impl<A: Send + 'static, B: Send + 'static> SimpBuilder<A, B> {
                         if e == RecvTimeoutError::Timeout {
                             continue;
                         } else {
-                            // Sender disconnected; the WorkerChannel was dropped, so we should stop this worker
+                            // Sender disconnected; the SimqChannel was dropped, so we should stop this worker
                             break;
                         }
                     }
@@ -126,7 +126,7 @@ impl<A: Send + 'static, B: Send + 'static> SimpBuilder<A, B> {
             }
         });
 
-        WorkerChannel {
+        SimqChannel {
             tx,
             results: result_map,
         }

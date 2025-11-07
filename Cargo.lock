@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "simpq"
+name = "simq"
 version = "0.1.0"
