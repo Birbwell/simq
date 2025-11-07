@@ -1,9 +1,9 @@
 [package]
 name = "simq"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 
 description = "A job queue with the goal of being as simple of a queue as possible."
-license-file = "LICENSE"
+license = "MIT"
 
 [dependencies]
