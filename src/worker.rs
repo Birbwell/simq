@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc::{RecvTimeoutError, SendError, Sender, channel};
 use std::sync::{Arc, Mutex};
-use std::thread::spawn;
+use std::thread;
 
 pub struct SimqChannel<A, B> {
     tx: Sender<(usize, A)>,
@@ -82,7 +82,7 @@ impl<A: Send + 'static, B: Send + 'static> SimqBuilder<A, B> {
         let result_map = Arc::new(Mutex::new(HashMap::new()));
         let job_result_map = result_map.clone();
 
-        spawn(move || {
+        thread::spawn(move || {
             let timeout_dur = std::time::Duration::from_millis(100);
             let sem = Arc::new(Mutex::new(self.max_threads));
             loop {
@@ -99,7 +99,64 @@ impl<A: Send + 'static, B: Send + 'static> SimqBuilder<A, B> {
                             std::thread::sleep(timeout_dur);
                         }
                         let thread_sem = sem.clone();
-                        spawn(move || {
+                        thread::spawn(move || {
+                            let mut res = (self.func)(params);
+                            if let Some(and_then) = self.opt_and_then {
+                                and_then(&res);
+                            } else if let Some(and_then_mut) = self.opt_and_then_mut {
+                                and_then_mut(&mut res);
+                            }
+                            if let Ok(mut lock) = thread_result_map.lock() {
+                                lock.insert(res_id, res);
+                            }
+                            if let Ok(mut lock) = thread_sem.lock() {
+                                *lock += 1;
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        if e == RecvTimeoutError::Timeout {
+                            continue;
+                        } else {
+                            // Sender disconnected; the SimqChannel was dropped, so we should stop this worker
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        SimqChannel {
+            tx,
+            results: result_map,
+        }
+    }
+
+    /// Launches the worker with an async runtime. Right now only supports tokio.
+    #[cfg(feature = "tokio")]
+    pub async fn spawn_async(self) -> SimqChannel<A, B> {
+        let (tx, rx) = channel::<(usize, A)>();
+        let result_map = Arc::new(Mutex::new(HashMap::new()));
+        let job_result_map = result_map.clone();
+
+        tokio::spawn(async move {
+            let timeout_dur = std::time::Duration::from_millis(100);
+            let sem = Arc::new(Mutex::new(self.max_threads));
+            loop {
+                match rx.recv_timeout(timeout_dur) {
+                    Ok((res_id, params)) => {
+                        let thread_result_map = job_result_map.clone();
+                        loop {
+                            if let Ok(mut lock) = sem.lock()
+                                && *lock > 0
+                            {
+                                *lock -= 1;
+                                break;
+                            }
+                            std::thread::sleep(timeout_dur);
+                        }
+                        let thread_sem = sem.clone();
+                        tokio::spawn(async move {
                             let mut res = (self.func)(params);
                             if let Some(and_then) = self.opt_and_then {
                                 and_then(&res);

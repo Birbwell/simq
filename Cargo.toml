@@ -1,9 +1,14 @@
 [package]
 name = "simq"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 
 description = "A job queue with the goal of being as simple of a queue as possible."
 license = "MIT"
 
+[features]
+default = []
+tokio = ["dep:tokio"]
+
 [dependencies]
+tokio = {version = "1.48.0", features=["rt"], optional = true}
